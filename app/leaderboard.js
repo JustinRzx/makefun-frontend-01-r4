@@ -1,25 +1,40 @@
-// A bounty's leaderboard page: a ranked table of the top entries, with each
-// entrant's handle, its score on the competition's ranking metric and its size.
-// Also exports the helpers the bounty page reuses for its "Top 5 now" strip.
+import { get, esc, num, emptyState } from './main.js';
 
-import { getLeaderboard } from './api.js';
-import { esc, bytes, num } from './format.js';
-import { emptyState } from './ui.js';
+let css;
+function ensureCss() {
+  if (!css) css = new Promise((ok) => {
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'pages.css';
+    l.onload = ok;
+    l.onerror = ok;
+    document.head.appendChild(l);
+  });
+  return css;
+}
 
-/** The ranking metric's raw value for an entry, or null when it has none. */
+export const getLeaderboard = (slug, first = false) =>
+  get(`/competitions/${encodeURIComponent(slug)}/leaderboard${first ? '?rows=first' : ''}`);
+
+export function bytes(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0 B';
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)} MB`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)} KB`;
+  return `${Math.round(n)} B`;
+}
+
 export function entryScore(entry, rankKey) {
   if (entry.values && entry.values[rankKey] !== undefined) return Number(entry.values[rankKey]);
   if (entry.value !== undefined && entry.value !== null) return Number(entry.value);
   return null;
 }
 
-/** An entry's size (the tie-break metric), or null when it has none. */
 export function entrySize(entry, tieKey) {
   if (entry.values && entry.values[tieKey] !== undefined) return Number(entry.values[tieKey]);
   return null;
 }
 
-/** A score rendered for humans: win rates become percents, counts stay counts. */
 export function scoreDisplay(entry, lb) {
   const source = lb.columns?.[0]?.source ?? '';
   const raw = entryScore(entry, lb.rank_key);
@@ -28,7 +43,6 @@ export function scoreDisplay(entry, lb) {
   return num(raw);
 }
 
-/** The top rows of a leaderboard as { rank, handle, title, score, size }. */
 export function rankRows(lb, count) {
   const list = lb.entries ?? [];
   const out = [];
@@ -46,13 +60,12 @@ export function rankRows(lb, count) {
   return out;
 }
 
-/** The total number of ranked entries the response covers. */
 export function entryTotal(lb) {
   return (lb.entries?.length ?? 0) + (lb.rest?.length ?? 0);
 }
 
-/** The leaderboard page: the top 50 entries. */
 export async function render(app, slug) {
+  await ensureCss();
   const lb = await getLeaderboard(slug);
   const total = entryTotal(lb);
   const rows = rankRows(lb, 50);

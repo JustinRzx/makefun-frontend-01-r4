@@ -1,10 +1,30 @@
-// One bounty's page: headline numbers, a reward table, its dates and a "Top 5
-// now" strip from the live leaderboard. Loaded lazily (dynamic import).
+import { get, esc, money, num, ordinal, potUsd, feeLabel, hasFee, isLive, timeLeft, rewardsOf, statusDot, categoryBadge, feeBadge, emptyState } from './main.js';
+import { rankRows, getLeaderboard } from './leaderboard.js';
 
-import { getBounty, getLeaderboard } from './api.js';
-import { esc, money, num, ordinal, potUsd, feeLabel, hasFee, isLive, timeLeft, date, rewardsOf } from './format.js';
-import { statusDot, categoryBadge, feeBadge, stat, emptyState } from './ui.js';
-import { rankRows } from './leaderboard.js';
+let css;
+function ensureCss() {
+  if (!css) css = new Promise((ok) => {
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'pages.css';
+    l.onload = ok;
+    l.onerror = ok;
+    document.head.appendChild(l);
+  });
+  return css;
+}
+
+const getBounty = (slug) => get(`/competitions/${encodeURIComponent(slug)}`);
+
+function date(iso) {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return 'Unknown';
+  return `${new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC`;
+}
+
+function stat(label, value, hint = '') {
+  return `<div class="stat"><span class="stat__label">${esc(label)}</span><span class="stat__value">${value}</span>${hint ? `<span class="stat__hint">${hint}</span>` : ''}</div>`;
+}
 
 function rewardTable(b) {
   const { rows, feeShareTotal } = rewardsOf(b);
@@ -56,6 +76,7 @@ function topFive(top) {
 }
 
 export async function render(app, slug) {
+  await ensureCss();
   const [b, lb] = await Promise.all([getBounty(slug), getLeaderboard(slug, true)]);
   const top = rankRows(lb, 5);
   const live = isLive(b);

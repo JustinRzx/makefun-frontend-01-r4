@@ -1,10 +1,29 @@
-// An account's public profile: its record, prize money and a tidy list of the
-// solutions it entered. The avatar is a text mark, so no image loads from any
-// other origin. Loaded lazily (dynamic import).
+import { get, esc, money, num, ordinal, emptyState } from './main.js';
 
-import { getProfile } from './api.js';
-import { esc, money, num, ordinal, dateShort } from './format.js';
-import { stat, emptyState } from './ui.js';
+let css;
+function ensureCss() {
+  if (!css) css = new Promise((ok) => {
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'pages.css';
+    l.onload = ok;
+    l.onerror = ok;
+    document.head.appendChild(l);
+  });
+  return css;
+}
+
+const getProfile = (handle) => get(`/profiles/${encodeURIComponent(handle)}`);
+
+function dateShort(iso) {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return 'Unknown';
+  return new Date(iso).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' });
+}
+
+function stat(label, value, hint = '') {
+  return `<div class="stat"><span class="stat__label">${esc(label)}</span><span class="stat__value">${value}</span>${hint ? `<span class="stat__hint">${hint}</span>` : ''}</div>`;
+}
 
 function solutionBadge(s) {
   if (s.prize_usd !== null && s.prize_usd !== undefined) return `<span class="badge badge--win">Won ${money(s.prize_usd)}</span>`;
@@ -32,6 +51,7 @@ function solutionsList(solutions) {
 }
 
 export async function render(app, handle) {
+  await ensureCss();
   const p = await getProfile(handle);
   const rec = p.record ?? {};
   const initial = (p.handle ?? '?').charAt(0).toUpperCase();
